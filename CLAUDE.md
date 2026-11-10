@@ -30,7 +30,7 @@ src/sim/noise.js      simplex/curl noise, surface pinning field
 src/gl/renderer.js    passes: background → water map → wet film → fog clear map → composite
 src/gl/shaders.js     all GLSL (COMPOSITE_FS does the water shading)
 src/mapping.js        audio features → forces (audio is behind features.audio = false)
-src/scenes.js, src/photos.js   background clips / photos (Wikimedia Commons, credited)
+src/scenes.js, src/photos.js   background clips / photo collections (Wikimedia Commons, credited)
 src/ui/ui.js          sliders, wind dial, background, keys, idle-hide
 src/ui/dock.js        dock icons ↔ cards, draggable cards (shared position)
 src/logo/

@@ -57,7 +57,7 @@ title to move it (all cards then open there); double-click the title to put it b
 | Icon | What's in it |
 |---|---|
 | Weather | Rain, Speed (car speed: airflow grows with speed²), Fog, Wind dial (where the air pushes the drops; "g" marks gravity) |
-| Scene | Background (scenic clips, night-city photos, your own image, webcam), Bokeh, Streak style |
+| Scene | Background (scenic clips, photos in themed collections, your own image, webcam), Bokeh (0 = pin-sharp background, higher = soft out-of-focus), Streak style |
 | Logo | Upload / replace / remove, size, interaction mode (Water, Invisible, Raised, Repellent) with its sliders, Fix mask |
 | Draw | Turns the dock into a drawing strip: Brush / Eraser, Size, Pressure, Undo, Clear, Done |
 | Settings | Quality, fullscreen, debug, keyboard shortcuts |
@@ -125,7 +125,7 @@ In the console:
 
 ## Scenic video backgrounds
 
-**City at night (photos)** is a slideshow of 20 night-city photos with lots of red (neon, tail lights, lanterns) from Wikimedia Commons (CC0 / CC BY / CC BY-SA). Step through with the ◀ / ▶ buttons or the left/right arrow keys; the current photo's credit is shown in the panel. The list is in `src/photos.js`.
+**Photos** is a click-through slideshow of still scenes you'd see from a car, in collections (city at night, night roads and light trails, country, mountain and coastal roads, rain and fog, snow, desert, city streets, or everything shuffled), all from Wikimedia Commons (CC0 / CC BY / CC BY-SA / public domain). Big screens load 3840 px versions, others 1920 px. Pick a collection in the Scene card; step through with the ◀ / ▶ buttons or the left/right arrow keys; the current photo's credit is shown in the panel. The lists are in `src/photos.js`.
 
 **Scenic clips** plays random clips from Wikimedia Commons straight into the renderer, so the
 drops refract them. It switches clip every 75 s (`background.sceneRotateSeconds`). The list

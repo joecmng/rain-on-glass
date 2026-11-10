@@ -6,7 +6,7 @@ import { Mapper } from './mapping.js';
 import { setupUI } from './ui/ui.js';
 import { DebugPanel } from './ui/debug.js';
 import { ScenePlayer, YouTubeScene } from './scenes.js';
-import { PhotoSlideshow } from './photos.js';
+import { PhotoSlideshow, COLLECTIONS } from './photos.js';
 import { LogoController } from './logo/logo.js';
 import { setupLogoPanel } from './logo/panel.js';
 import { DrawingLayer } from './logo/draw.js';
@@ -88,7 +88,7 @@ const scenes = new ScenePlayer({
   onStall: () => ui?.showScene({ html: `<b>Tap anywhere to start the video</b><br>${currentClip ? clipCredit(currentClip) : ''}` }),
   // this device can't play the clips (e.g. older iPhones and WebM): use the photos instead
   onFail: (why) => {
-    ui.toast(`Video clips can't play here (${why}), so showing the night-city photos instead.`, 6000);
+    ui.toast(`Video clips can't play here (${why}), so showing photos instead.`, 6000);
     ui.setBackgroundMode('photos');
     ui.background('photos');
   },
@@ -110,6 +110,20 @@ const photos = new PhotoSlideshow({
   },
   onError: (e) => ui.toast(`${e.message}. Try the next one.`, 4000),
 });
+// photo collection picker (Scene card): remembered on this device
+{
+  const sel = document.getElementById('photoSet'), KEY = 'rainPhotoSet';
+  sel.innerHTML = COLLECTIONS.map((c) => `<option value="${c.id}">${esc(c.name)} (${c.photos.length})</option>`).join('')
+    + `<option value="all">Everything, shuffled (${COLLECTIONS.reduce((a, c) => a + c.photos.length, 0)})</option>`;
+  let saved = null;
+  try { saved = localStorage.getItem(KEY); } catch { /* ignore */ }
+  if (saved && (saved === 'all' || COLLECTIONS.some((c) => c.id === saved))) photos.setCollection(saved, false);
+  sel.value = photos.collection;
+  sel.addEventListener('change', () => {
+    try { localStorage.setItem(KEY, sel.value); } catch { /* ignore */ }
+    photos.setCollection(sel.value, settings.background === 'photos');
+  });
+}
 let ytStream = null, ytInfo = null;
 function stopYouTubeCapture() {
   ytStream?.getTracks().forEach((t) => t.stop());

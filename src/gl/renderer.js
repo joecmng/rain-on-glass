@@ -93,6 +93,7 @@ export class Renderer {
     for (const k in this.T) deleteTarget(gl, this.T[k]);
     const ww = w * q.waterScale, wh = h * q.waterScale;
     const bw = w * q.bgScale, bh = h * q.bgScale;
+    const sw = w * (q.sharpScale ?? q.bgScale), sh = h * (q.sharpScale ?? q.bgScale);
     this.T = {
       water: createTarget(gl, ww, wh),
       wet: createTarget(gl, ww, wh),
@@ -100,7 +101,7 @@ export class Renderer {
       wetS: createTarget(gl, ww, wh),      // smoothed copy of the streak field (for shading only)
       wetTmp: createTarget(gl, ww, wh),
       waterS: createTarget(gl, ww, wh),    // smoothed copy of the drop field (for shading only)
-      sharp: createTarget(gl, bw, bh),
+      sharp: createTarget(gl, sw, sh),     // in-focus background, up to full resolution
       blurA: createTarget(gl, bw * 0.5, bh * 0.5),
       blurB: createTarget(gl, bw * 0.5, bh * 0.5),
     };
@@ -144,16 +145,19 @@ export class Renderer {
   // source: HTMLImageElement | HTMLVideoElement | null (city)
   setBackground(mode, source = null, mirror = false) {
     this.bgMode = mode; this.bgSource = source; this.bgMirror = mirror; this.bgReady = false;
-    if (source instanceof HTMLImageElement) this._upload(source);
+    if (source instanceof HTMLImageElement) this._upload(source, true);
   }
 
-  _upload(src) {
+  // Photos get mipmaps: a big (e.g. 3840 px) photo shown smaller then stays smooth instead
+  // of shimmering. Video frames change every frame, so they don't.
+  _upload(src, mipmaps = false) {
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this.bgTex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    if (mipmaps) gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mipmaps ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -394,6 +398,10 @@ export class Renderer {
     gl.uniform3fv(u.uGlassTint, R.glassTint);
     gl.uniform2f(u.uClearTexel, 1.5 / T.clear.w, 1.5 / T.clear.h);
     gl.uniform1f(u.uFogDensity, settings.fog ?? CONFIG.defaults.fog);
+    // how out of focus the view through the glass is: Bokeh 0 = the full-resolution picture,
+    // rising to fully blurred by Bokeh ~0.8
+    { const b = settings.bokeh ?? CONFIG.defaults.bokeh, t = Math.min(1, Math.max(0, b / 0.8));
+      gl.uniform1f(u.uDefocus, t * t * (3 - 2 * t)); }
     gl.uniform1f(u.uFogSpread, CONFIG.fog.spread);
     gl.uniform1f(u.uFogLift, CONFIG.fog.lift);
     gl.uniform1f(u.uFogEdge, CONFIG.fog.edge);

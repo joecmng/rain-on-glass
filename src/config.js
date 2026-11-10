@@ -25,12 +25,14 @@ export const CONFIG = {
   // ── Quality presets ──────────────────────────────────────────────────────
   // renderScale: canvas resolution relative to CSS px × devicePixelRatio
   // waterScale:  water-map resolution relative to the canvas
-  // bgScale:     sharp background resolution relative to the canvas (blur is half of this)
+  // bgScale:     blurred-background resolution relative to the canvas (the blur is half of this)
+  // sharpScale:  resolution of the in-focus background (seen through the drops, and on the
+  //              glass when Bokeh is low) relative to the canvas
   quality: {
-    low:    { renderScale: 0.6,  waterScale: 0.5,  bgScale: 0.3,  maxDrops: 600,  maxMist: 1000 },
-    medium: { renderScale: 0.8,  waterScale: 0.6,  bgScale: 0.4,  maxDrops: 1000, maxMist: 2000 },
-    high:   { renderScale: 1.0,  waterScale: 0.75, bgScale: 0.5,  maxDrops: 1500, maxMist: 3000 },
-    ultra:  { renderScale: 1.0,  waterScale: 1.0,  bgScale: 0.6,  maxDrops: 2000, maxMist: 4500 },
+    low:    { renderScale: 0.6,  waterScale: 0.5,  bgScale: 0.3,  sharpScale: 0.6,  maxDrops: 600,  maxMist: 1000 },
+    medium: { renderScale: 0.8,  waterScale: 0.6,  bgScale: 0.4,  sharpScale: 0.8,  maxDrops: 1000, maxMist: 2000 },
+    high:   { renderScale: 1.0,  waterScale: 0.75, bgScale: 0.5,  sharpScale: 1.0,  maxDrops: 1500, maxMist: 3000 },
+    ultra:  { renderScale: 1.0,  waterScale: 1.0,  bgScale: 0.6,  sharpScale: 1.0,  maxDrops: 2000, maxMist: 4500 },
   },
   defaultQuality: 'high',
   maxDevicePixelRatio: 2,     // cap DPR so 4K/retina doesn't melt laptops
@@ -284,6 +286,7 @@ export const CONFIG = {
     sceneRotateSeconds: 75,  // scenic clips: switch to another random clip this often
     scrollSpeed: 0.33,       // screen heights/s of the nearest bokeh layer at speed 1
     imageBlurPasses: 3,
+    photoBokeh: 0.2,         // Bokeh for photo backgrounds (sharp detail), until you move the slider
   },
 
   // Uploaded logo (src/logo/). Placement sizes are fractions of the window's shorter side.

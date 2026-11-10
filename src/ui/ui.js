@@ -35,6 +35,16 @@ export function setupUI(settings, h) {
     const sync = () => { settings[key] = parseFloat(input.value); out.textContent = fmt[key](settings[key]); };
     input.addEventListener('input', sync); sync();
   }
+  // Bokeh starts per background type (photos nearly sharp, video clips soft), until you
+  // move the slider yourself; after that your setting is kept.
+  let bokehTouched = false;
+  $('bokeh').addEventListener('input', () => { bokehTouched = true; });
+  const autoBokeh = (mode) => {
+    if (bokehTouched) return;
+    const v = mode === 'photos' || mode === 'image' ? CONFIG.background.photoBokeh : CONFIG.defaults.bokeh;
+    settings.bokeh = v; $('bokeh').value = v;
+    $('bokeh').parentElement.querySelector('output').textContent = fmt.bokeh(v);
+  };
 
   // wind dial: the arrow points where the air pushes the drops. Angle is measured from
   // straight down (gravity) toward the rear: 0° = down, 90° = horizontal, 180° = up.
@@ -110,8 +120,9 @@ export function setupUI(settings, h) {
   const bgSel = $('bg');
   bgSel.value = settings.background;
   let bgMode = settings.background;
+  const showPhotoSet = () => { $('photoSetRow').hidden = settings.background !== 'photos'; };
   const pickBg = async (mode, file) => {
-    try { await h.background(mode, file); bgMode = mode; bgSel.value = mode; settings.background = mode; }
+    try { await h.background(mode, file); bgMode = mode; bgSel.value = mode; settings.background = mode; showPhotoSet(); autoBokeh(mode); }
     catch (e) { bgSel.value = bgMode; toast(e?.message || String(e), 5000); }
   };
   // scene box (credits / next / capture) for the video backgrounds
@@ -204,5 +215,5 @@ export function setupUI(settings, h) {
     else toast(`“${f.name}” isn't a supported logo file. Use PNG, JPG, WebP, GIF, SVG, PDF or AI.`, 5000);
   });
 
-  return { toast, status, showScene, background: (m) => pickBg(m), startBackground: () => pickBg(settings.background), setBackgroundMode: (m) => { bgMode = m; bgSel.value = m; settings.background = m; }, setAudioMode: (m) => { audioMode = m; audioSel.value = m; $('player').hidden = m !== 'file'; } };
+  return { toast, status, showScene, background: (m) => pickBg(m), startBackground: () => pickBg(settings.background), setBackgroundMode: (m) => { bgMode = m; bgSel.value = m; settings.background = m; showPhotoSet(); autoBokeh(m); }, setAudioMode: (m) => { audioMode = m; audioSel.value = m; $('player').hidden = m !== 'file'; } };
 }

@@ -374,7 +374,7 @@ uniform float uFogDensity, uFogSpread, uFogLift, uFogEdge;
 uniform float uTexelWorld, uThresh, uDropHeight, uNormalStrength;
 uniform float uDropSharp, uTinyMin, uTinyMax, uTinyContrast;
 uniform float uLensZoom, uTrailLens, uTrailSharp, uEdgeDark, uFresnel, uSpec, uShininess, uShimmer;
-uniform float uExposure, uVignette, uGrain, uFog, uTime, uAspect, uBreakup, uBreakupScale;
+uniform float uExposure, uVignette, uGrain, uFog, uTime, uAspect, uBreakup, uBreakupScale, uDefocus;
 uniform vec3 uGlassTint;
 // Uploaded logo: colour + mask (alpha), where it sits (screen fractions from the top-left:
 // x, y, w, h), and its signed distance map (in mask-grid cells, negative inside; uLogoSdfMap
@@ -444,7 +444,9 @@ void main() {
   float dryM = uLogoDry * lm;                                 // Water-Repellent: stays dry
 
   vec3 blur = texture(uBlur, vUv).rgb;
-  vec3 glass = blur * uGlassTint;
+  // the view through the glass: the full-resolution background blended toward the blurred
+  // one by the Bokeh slider (0 = pin-sharp, high = soft out-of-focus)
+  vec3 glass = mix(texture(uSharp, vUv).rgb, blur, uDefocus) * uGlassTint;
   glass += vec3(0.6, 0.65, 0.7) * uFog * (0.6 + 0.4 * hash(floor(vUv * 900.0))) * (1.0 - dryM);   // faint haze
 
   // condensation fog: micro-droplets scatter light, so the view is softer, flatter,
