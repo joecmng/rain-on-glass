@@ -1,4 +1,5 @@
 import { CONFIG } from '../config.js';
+import { setupDock } from './dock.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -13,9 +14,22 @@ export function setupUI(settings, h) {
   };
   const status = (msg) => { $('audioStatus').textContent = msg || ''; };
 
+  // the control dock (icons at the bottom; each opens a card)
+  const dock = setupDock();
+
+  // audio controls are behind a feature switch (hidden for now)
+  const audioOn = !!CONFIG.features?.audio;
+  $('audioSection').hidden = !audioOn;
+  if (audioOn) {
+    $('dropHint').textContent = 'Drop an audio or logo file anywhere.';
+    $('dropzone').textContent = 'Drop audio or a logo';
+  }
+
+  if (CONFIG.features?.youtube) { const o = $('bgYouTube'); o.hidden = false; o.disabled = false; }
+
   // sliders
-  const fmt = { sensitivity: (v) => v.toFixed(2), speed: (v) => v.toFixed(2), rain: (v) => v.toFixed(2), fog: (v) => v.toFixed(2) };
-  for (const key of ['sensitivity', 'speed', 'rain', 'fog']) {
+  const fmt = { sensitivity: (v) => v.toFixed(2), speed: (v) => v.toFixed(2), rain: (v) => v.toFixed(2), fog: (v) => v.toFixed(2), bokeh: (v) => v.toFixed(2), grain: (v) => v.toFixed(2) };
+  for (const key of ['sensitivity', 'speed', 'rain', 'fog', 'bokeh']) {
     const input = $(key), out = input.parentElement.querySelector('output');
     input.value = settings[key];
     const sync = () => { settings[key] = parseFloat(input.value); out.textContent = fmt[key](settings[key]); };
@@ -100,6 +114,28 @@ export function setupUI(settings, h) {
     try { await h.background(mode, file); bgMode = mode; bgSel.value = mode; settings.background = mode; }
     catch (e) { bgSel.value = bgMode; toast(e?.message || String(e), 5000); }
   };
+  // scene box (credits / next / capture) for the video backgrounds
+  const sceneBox = $('sceneBox'), sceneText = $('sceneText'), sceneCapture = $('sceneCapture');
+  const showScene = (info) => {
+    sceneBox.hidden = !info;
+    if (!info) return;
+    sceneText.innerHTML = info.html;
+    sceneCapture.hidden = !info.capture;
+    $('scenePrev').hidden = !info.prev;
+    $('sceneNext').textContent = info.nextLabel || 'Next scene';
+  };
+  $('sceneNext').addEventListener('click', () => h.nextScene());
+  $('scenePrev').addEventListener('click', () => h.prevScene());
+  // ← / → step through the photo slideshow (ignored while typing or on the wind dial)
+  addEventListener('keydown', (e) => {
+    if (settings.background !== 'photos') return;
+    const t = e.target;
+    if (t instanceof HTMLInputElement || t instanceof HTMLSelectElement || t?.id === 'windDial') return;
+    if (e.key === 'ArrowRight') { h.nextScene(); e.preventDefault(); }
+    else if (e.key === 'ArrowLeft') { h.prevScene(); e.preventDefault(); }
+  });
+  sceneCapture.addEventListener('click', () => h.captureScene());
+
   bgSel.addEventListener('change', () => {
     if (bgSel.value === 'image') { bgSel.value = bgMode; $('imageFile').click(); return; }
     pickBg(bgSel.value);
@@ -151,7 +187,10 @@ export function setupUI(settings, h) {
   for (const ev of ['mousemove', 'mousedown', 'touchstart', 'wheel']) addEventListener(ev, wake, { passive: true });
   wake();
 
-  // drag & drop: audio → audio source, image → background
+  // drag & drop: audio → audio source, images / SVG / PDF / AI / EPS → the logo
+  // (a background picture is chosen from Background → Image…)
+  const logoLike = (f) => /^image\//.test(f.type) || f.type === 'application/pdf' || f.type === 'application/postscript'
+    || /\.(png|jpe?g|webp|gif|svg|pdf|ai|eps|epsf)$/i.test(f.name);
   let dragDepth = 0;
   addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
   addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); } });
@@ -160,10 +199,10 @@ export function setupUI(settings, h) {
     e.preventDefault(); dragDepth = 0; document.body.classList.remove('dragging');
     const f = e.dataTransfer?.files?.[0];
     if (!f) return;
-    if (f.type.startsWith('audio/') || /\.(mp3|wav|ogg|flac|m4a|aac|opus)$/i.test(f.name)) pickAudio('file', f);
-    else if (f.type.startsWith('image/')) pickBg('image', f);
-    else toast('Drop an audio file or an image.');
+    if (audioOn && (f.type.startsWith('audio/') || /\.(mp3|wav|ogg|flac|m4a|aac|opus)$/i.test(f.name))) pickAudio('file', f);
+    else if (logoLike(f)) h.logoFile(f);
+    else toast(`“${f.name}” isn't a supported logo file. Use PNG, JPG, WebP, GIF, SVG, PDF or AI.`, 5000);
   });
 
-  return { toast, status, setAudioMode: (m) => { audioMode = m; audioSel.value = m; $('player').hidden = m !== 'file'; } };
+  return { toast, status, showScene, background: (m) => pickBg(m), startBackground: () => pickBg(settings.background), setBackgroundMode: (m) => { bgMode = m; bgSel.value = m; settings.background = m; }, setAudioMode: (m) => { audioMode = m; audioSel.value = m; $('player').hidden = m !== 'file'; } };
 }

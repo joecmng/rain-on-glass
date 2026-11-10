@@ -1,7 +1,10 @@
 # Rain on Glass
 
-A music-reactive visualiser of rain on the side window of a fast-moving car.
-It uses WebGL2 and vanilla JS, built with Vite.
+A visualiser of rain on the side window of a fast-moving car. Upload a logo (or draw
+with a pen or finger) and it becomes water on the glass: it fills with the rain, swells
+and drips. It uses WebGL2 and vanilla JS, built with Vite.
+
+**Live:** https://joecmng.github.io/rain-on-glass/ (rebuilt automatically on every push to `main`).
 
 ## Run it
 
@@ -14,6 +17,11 @@ Open http://localhost:5173 in Chrome or Edge. Screen and tab audio capture needs
 Chromium browser. Localhost counts as a secure context, so capture works there.
 
 For a static build, run `npm run build` and serve `dist/` over https or localhost.
+Notes for working on the code (with or without Claude Code) are in `CLAUDE.md`.
+
+> **Audio is switched off for now.** The audio controls (source picker, sensitivity) and the
+> music reaction are hidden. All the code is still there. To bring them back, set
+> `features.audio` to `true` in `src/config.js`.
 
 ## Make it react to YouTube (Chrome / Edge)
 
@@ -42,18 +50,23 @@ Notes:
 
 ## Controls
 
-| Control | Effect |
-|---|---|
-| Sensitivity | Gain on all audio features |
-| Speed | Car speed. Airflow grows with speed² (air drag): at low speed gravity wins and drops run down; at high speed they streak back |
-| Wind (dial) | Drag the arrow to set where the air pushes the drops. The small "g" mark shows gravity (down). Starts at 90° = horizontal toward the rear; double-click to reset, arrow keys to nudge |
-| Rain | Spawn rate |
-| Background | Night-city bokeh, your own image (or drag an image onto the page), or webcam |
-| Quality | Low, Medium, High or Ultra. It steps down automatically if the focused page stays under 50 fps, unless you've picked a level yourself |
-| **D** | Debug panel: audio meters, onset/beat lamps, force outputs, FPS, drop counts |
-| **H** / **F** | Hide UI / fullscreen |
+Everything sits in a small dock at the bottom of the window. Each icon opens a card;
+tap the same icon again, tap the glass or press Esc to close it. Drag a card by its
+title to move it (all cards then open there); double-click the title to put it back.
 
-The panel hides itself after 3 s without mouse movement.
+| Icon | What's in it |
+|---|---|
+| Weather | Rain, Speed (car speed: airflow grows with speed²), Fog, Wind dial (where the air pushes the drops; "g" marks gravity) |
+| Scene | Background (scenic clips, night-city photos, your own image, webcam), Bokeh, Streak style |
+| Logo | Upload / replace / remove, size, interaction mode (Water, Invisible, Raised, Repellent) with its sliders, Fix mask |
+| Draw | Turns the dock into a drawing strip: Brush / Eraser, Size, Pressure, Undo, Clear, Done |
+| Settings | Quality, fullscreen, debug, keyboard shortcuts |
+
+Logos: PNG, JPG, WebP, GIF, SVG, PDF or AI (drop a file on the page or use Upload). Drag the
+logo to move it; scroll or pinch to resize.
+
+Keys: **B** draw · **E** eraser · **Ctrl+Z** undo · **M** show mask · **D** debug · **H** hide · **F** fullscreen.
+Quality steps down automatically if the page stays under 50 fps, unless you've picked a level.
 
 ## How it works
 
@@ -69,7 +82,8 @@ src/
   audio/audio.js     tab/system, mic, file and test-beat sources → AnalyserNode
   audio/features.js  bands, loudness, spectral flux, onset/beat, auto-gain, envelopes
   mapping.js         features → forces and spawn rates (never positions)
-  ui/ui.js, ui/debug.js
+  ui/ui.js, ui/dock.js, ui/debug.js
+  logo/              logo loading, surface map (+ worker), interaction modes, drawing
 ```
 
 **Rendering.** Each drop is drawn as an instanced quad into a half-float "water map":
@@ -108,3 +122,22 @@ texture leaves the thin trails behind sliding drops.
 In the console:
 - `__advance(seconds)` steps the sim synchronously.
 - `__app` exposes the sim, the audio engine, the current features and forces.
+
+## Scenic video backgrounds
+
+**City at night (photos)** is a slideshow of 20 night-city photos with lots of red (neon, tail lights, lanterns) from Wikimedia Commons (CC0 / CC BY / CC BY-SA). Step through with the ◀ / ▶ buttons or the left/right arrow keys; the current photo's credit is shown in the panel. The list is in `src/photos.js`.
+
+**Scenic clips** plays random clips from Wikimedia Commons straight into the renderer, so the
+drops refract them. It switches clip every 75 s (`background.sceneRotateSeconds`). The list
+and credits are in `src/scenes.js`. All are CC BY 3.0 except the Cologne clip (CC BY-SA 4.0),
+and the current clip's credit is shown in the panel.
+
+**YouTube scene** is hidden for now (set `features.youtube` to `true` in `src/config.js` to bring it back). It can't read YouTube's player directly (browsers block that), so it:
+
+1. Opens a random scenic drive in a small window (allow pop-ups for the page if asked).
+2. You click **Capture scene window**, choose the **Chrome Tab** tab, and pick the scene.
+   Turn on **Also share tab audio** to use its sound for the music reaction too
+   (click the scene window and press **M** to unmute it).
+3. Its picture becomes the background. **Next scene** loads another drive in the same window.
+
+Keep the scene window open (it can sit behind other windows). The list is in `src/scenes.js`.

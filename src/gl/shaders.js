@@ -66,9 +66,10 @@ void main() {
         float soft = mix(0.025, 0.06, uFocus);
         float disc = 1.0 - smoothstep(rad - soft, rad, dist);
         float rim = smoothstep(rad * 0.55, rad, dist) * disc * 0.45 * uFocus;
-        float bright = mix(2.6, 0.22, uFocus) * mix(0.35, 1.0, rnd.y) * (1.0 - fl * 0.14);
+        // same light spread over a bigger disc gets dimmer (beyond focus 1: ∝ 1/size²)
+        float bright = (uFocus <= 1.0 ? mix(2.6, 0.22, uFocus) : 0.22 / (uFocus * uFocus)) * mix(0.35, 1.0, rnd.y) * (1.0 - fl * 0.14);
         float flick = 0.88 + 0.12 * sin(uTime * (1.5 + rnd.x * 4.0) + rnd.y * 40.0);
-        float glow = (1.0 - uFocus) * 0.004 / (dist * dist + 0.004);
+        float glow = max(0.0, 1.0 - uFocus) * 0.004 / (dist * dist + 0.004);
         col += lc * ((disc + rim) * bright + glow * 0.35 * bright) * flick;
       }
     }
@@ -221,6 +222,65 @@ void main() {
   o = vec4(k, k * thick, 0.0, thick * smoothstep(0.08, 0.3, k));
 }`;
 
+// ── Logo made of water ──────────────────────────────────────────────────────
+// The uploaded logo drawn into the same water field as the drops, so it is shaded exactly
+// like them (lens, dark rim, glints) and drops touching it fuse with it. Its cross-section
+// comes from the logo's signed distance map: rho = 1 at the outline, falling to 0 at
+// uProfile world units inside, fed through the same kernel as a drop, so every stroke is
+// a rounded rivulet with a meniscus edge (wide areas level off into a flat-topped pool).
+export const LOGO_WATER_FS = /* glsl */ `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 o;
+uniform sampler2D uLogoSdf;
+uniform vec4 uLogoRect, uLogoSdfMap;
+uniform float uCellWorld, uWeight, uProfile, uThick, uAmount, uSwell, uBulge;
+// How full each piece of the logo is (0 = resting). The distance map's G channel says which
+// piece a cell belongs to, B how far down that piece it sits (0 top … 1 bottom). A fuller
+// piece holds deeper water, and gravity sends it to the bottom: the lower part deepens
+// most and its outline bulges outward there, like a hanging belly of water.
+uniform float uFill[64];
+${KERNEL_GLSL}
+void main() {
+  vec2 luv = vec2((vUv.x - uLogoRect.x) / uLogoRect.z, (1.0 - vUv.y - uLogoRect.y) / uLogoRect.w);
+  vec2 suv = luv * uLogoSdfMap.xy + uLogoSdfMap.zw;
+  if (suv.x < 0.0 || suv.y < 0.0 || suv.x > 1.0 || suv.y > 1.0) discard;
+  ivec2 ts = textureSize(uLogoSdf, 0);
+  // piece: nearest cell (an index can't be blended); height in piece: smooth (blended),
+  // otherwise the bulging outline would step from cell to cell
+  float pieceId = texelFetch(uLogoSdf, clamp(ivec2(suv * vec2(ts)), ivec2(0), ts - 1), 0).g;
+  int L = int(pieceId + 0.5);
+  float fill = (pieceId > -0.5 && L < 64) ? min(uFill[L], 1.6) : 0.0;
+  float sag = clamp(texture(uLogoSdf, suv).b, 0.0, 1.0);
+  float low = fill * sag * sag;
+  float sd = texture(uLogoSdf, suv).a * uCellWorld - uWeight - uBulge * low * sag;   // world units, < 0 inside (rounded copy)
+  float prof = uProfile * (1.0 + 0.6 * low);
+  float thick = uThick * (1.0 + uSwell * fill * (0.3 + 0.7 * sag * sag));
+  float rho = max(0.0, 1.0 + sd / prof);
+  float x2 = rho * rho * KD0 * KD0;
+  if (x2 >= 1.0) discard;
+  float k = 1.0 - x2; k = k * k * k * uAmount;
+  o = vec4(k, k * thick, 0.0, thick * smoothstep(0.08, 0.3, k));
+}`;
+
+// The logo's water also clears the condensation under it (water on the glass, like the
+// drops' dry halos), so it reads cleanly through any fog.
+export const LOGO_CLEAR_FS = /* glsl */ `#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 o;
+uniform sampler2D uLogoSdf;
+uniform vec4 uLogoRect, uLogoSdfMap;
+uniform float uCellWorld, uWeight, uAmount;
+void main() {
+  vec2 luv = vec2((vUv.x - uLogoRect.x) / uLogoRect.z, (1.0 - vUv.y - uLogoRect.y) / uLogoRect.w);
+  vec2 suv = luv * uLogoSdfMap.xy + uLogoSdfMap.zw;
+  if (suv.x < 0.0 || suv.y < 0.0 || suv.x > 1.0 || suv.y > 1.0) discard;
+  float sd = texture(uLogoSdf, suv).r * uCellWorld - uWeight;
+  float a = (1.0 - smoothstep(-2.0, 6.0, sd)) * uAmount;
+  o = vec4(a, 0.0, 0.0, 1.0);
+}`;
+
 // ── Streak channels: same kernel, persistent, fading ────────────────────────
 export const WET_VS = /* glsl */ `#version 300 es
 layout(location = 0) in vec2 aCorner;
@@ -312,10 +372,19 @@ uniform sampler2D uWater, uWet, uSharp, uBlur, uClear;
 uniform vec2 uTexel, uWorldInv, uClearTexel;
 uniform float uFogDensity, uFogSpread, uFogLift, uFogEdge;
 uniform float uTexelWorld, uThresh, uDropHeight, uNormalStrength;
-uniform float uDropSharp;
+uniform float uDropSharp, uTinyMin, uTinyMax, uTinyContrast;
 uniform float uLensZoom, uTrailLens, uTrailSharp, uEdgeDark, uFresnel, uSpec, uShininess, uShimmer;
 uniform float uExposure, uVignette, uGrain, uFog, uTime, uAspect, uBreakup, uBreakupScale;
 uniform vec3 uGlassTint;
+// Uploaded logo: colour + mask (alpha), where it sits (screen fractions from the top-left:
+// x, y, w, h), and its signed distance map (in mask-grid cells, negative inside; uLogoSdfMap
+// maps logo uv to distance-map uv). Mode amounts, all 0 = off:
+//   uLogoFrost  Invisible Glass: frosted micro-beads
+//   uLogoDry    Water-Repellent: dry patch, no condensation
+//   uLogoRaise  Raised Object: glossy bevelled emblem
+uniform sampler2D uLogo, uLogoSdf;
+uniform vec4 uLogoRect, uLogoSdfMap;
+uniform float uLogoFrost, uLogoDry, uLogoRaise, uLogoBevel, uLogoGloss, uLogoDepth;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 float vnoise(vec2 p) {
@@ -367,14 +436,21 @@ void main() {
   float fw = max(fwidth(fc.x), 1e-4);
   float mask = smoothstep(uThresh - fw * 0.75, uThresh + fw * 0.75, fc.x);
 
+  // the logo at this pixel (lm = 0 outside it)
+  vec2 luv = vec2((vUv.x - uLogoRect.x) / uLogoRect.z, (1.0 - vUv.y - uLogoRect.y) / uLogoRect.w);
+  float inLogo = step(0.0, luv.x) * step(luv.x, 1.0) * step(0.0, luv.y) * step(luv.y, 1.0);
+  vec4 lc = texture(uLogo, clamp(luv, 0.0, 1.0));
+  float lm = inLogo * lc.a;
+  float dryM = uLogoDry * lm;                                 // Water-Repellent: stays dry
+
   vec3 blur = texture(uBlur, vUv).rgb;
   vec3 glass = blur * uGlassTint;
-  glass += vec3(0.6, 0.65, 0.7) * uFog * (0.6 + 0.4 * hash(floor(vUv * 900.0)));   // faint haze
+  glass += vec3(0.6, 0.65, 0.7) * uFog * (0.6 + 0.4 * hash(floor(vUv * 900.0))) * (1.0 - dryM);   // faint haze
 
   // condensation fog: micro-droplets scatter light, so the view is softer, flatter,
   // lighter and speckled. Sliding drops wipe it away; the edges of each wipe hold
   // slightly denser fog where the condensation was pushed aside.
-  float clr = clamp(texture(uClear, vUv).r, 0.0, 1.0);
+  float clr = max(clamp(texture(uClear, vUv).r, 0.0, 1.0), dryM);   // a dry patch never fogs
   float fogA = uFogDensity * (1.0 - clr);
   vec2 fsp = vec2(uFogSpread / uAspect, uFogSpread);
   vec3 b2 = (texture(uBlur, vUv + vec2(fsp.x, 0.0)).rgb + texture(uBlur, vUv - vec2(fsp.x, 0.0)).rgb
@@ -388,12 +464,73 @@ void main() {
                  texture(uClear, vUv + vec2(0.0, uClearTexel.y)).r - texture(uClear, vUv - vec2(0.0, uClearTexel.y)).r);
   glass += vec3(lum * 0.6 + 0.02) * clamp(length(cg) * uFogEdge, 0.0, 1.0) * uFogDensity * (1.0 - clr * 0.5);
 
+  // Invisible Glass: the logo's water-repellent coating makes the wet film break up into
+  // countless micro-beads (dropwise rather than filmwise condensation). They scatter light
+  // like frost, so the logo shows as a frosted, glittering patch, only while it's wet.
+  // Sliding drops wipe it (via the same clear map as the fog) and it re-forms behind them.
+  if (uLogoFrost > 0.0) {
+    float fr = clamp(uLogoFrost * lm * (1.0 - 0.8 * clr), 0.0, 1.0);
+    if (fr > 0.001) {
+      // a cellular pattern of tiny beads: one per cell, random size and position
+      vec2 bp = vUv * vec2(uAspect, 1.0) * 170.0;
+      vec2 bc = floor(bp), bf = fract(bp) - 0.5;
+      vec2 off = vec2(hash(bc + 3.1), hash(bc + 7.7)) - 0.5;
+      float br = 0.18 + 0.22 * hash(bc + 1.3);
+      vec2 dv = bf - off * (1.0 - 2.0 * br);
+      float dd = length(dv) / br;
+      float bead = 1.0 - smoothstep(0.75, 1.0, dd);
+      float rim = smoothstep(0.55, 0.95, dd) * bead;              // dark edge of each bead
+      float hl = pow(max(0.0, 1.0 - length(dv / br - vec2(-0.35, 0.35)) * 2.2), 3.0) * bead;
+      // milky: desaturated, lifted toward white (scattered light), more so on dark scenes
+      vec3 frost = mix(b2, vec3(lum), 0.6) * 0.72 + vec3(0.16, 0.17, 0.18) + lum * 0.16;
+      frost *= 1.0 - 0.45 * rim;                                    // each bead's dark edge
+      frost += vec3(0.95, 0.97, 1.0) * hl * (0.45 + lum);           // and its glint
+      glass = mix(glass, frost, fr);
+    }
+  }
+
+  // Raised Object: a glossy emblem standing proud of the glass. The bevel comes from the
+  // distance map: height rises from the edge over uLogoBevel cells (a rounded profile),
+  // its slope tilts the normal; lit from the upper left, with a soft contact shadow on
+  // the glass below-right, a highlight and a blurred reflection of the scene.
+  if (uLogoRaise > 0.0) {
+    vec2 suv = luv * uLogoSdfMap.xy + uLogoSdfMap.zw;
+    vec2 tx = 1.0 / vec2(textureSize(uLogoSdf, 0));
+    float sd = texture(uLogoSdf, suv).r;
+    vec2 g = vec2(texture(uLogoSdf, suv + vec2(tx.x, 0.0)).r - texture(uLogoSdf, suv - vec2(tx.x, 0.0)).r,
+                -(texture(uLogoSdf, suv + vec2(0.0, tx.y)).r - texture(uLogoSdf, suv - vec2(0.0, tx.y)).r));
+    float gl = length(g);
+    vec2 outN = gl > 1e-4 ? g / gl : vec2(0.0);                 // outward, screen y up
+    float dIn = clamp(-sd / uLogoBevel, 0.0, 1.0);              // 0 at the edge, 1 on the top
+    float slope = 2.0 * (1.0 - dIn) * uLogoDepth;               // derivative of 1 - (1 - d)^2
+    vec3 nE = normalize(vec3(outN * slope, 1.0));
+    vec3 L = normalize(vec3(-0.5, 0.55, 0.75));
+    vec3 Hh = normalize(L + vec3(0.0, 0.0, 1.0));
+    float spec = pow(max(dot(nE, Hh), 0.0), 90.0);
+    float fres = 0.05 + 0.95 * pow(1.0 - nE.z, 3.0);
+    vec3 env = texture(uBlur, vUv + nE.xy * 0.06).rgb;
+    float sheen = smoothstep(0.25, 0.75, luv.x * 0.45 + (1.0 - luv.y) * 0.55);   // soft diagonal gloss
+    vec3 base = pow(lc.rgb, vec3(2.2));                         // logo colours are sRGB; shading is linear
+    vec3 emb = base * (0.38 + 0.7 * max(dot(nE, L), 0.0))
+             + env * (0.04 + 0.75 * fres + 0.07 * sheen) * uLogoGloss
+             + vec3(1.0, 0.98, 0.95) * spec * 0.9 * uLogoGloss;
+    // contact shadow: the emblem seen from a step toward the light
+    float sdS = texture(uLogoSdf, suv + vec2(-2.0, -2.5) * tx * uLogoDepth).r;
+    float sh = (1.0 - smoothstep(-1.0, 3.5, sdS)) * (1.0 - lm);
+    glass *= 1.0 - 0.38 * sh * uLogoRaise;
+    glass = mix(glass, emb, lm * uLogoRaise);
+  }
+
   // Every body of water is a lens: n.xy is roughly the offset from its centre / its
   // size, so sampling against normal × size gives an inverted, minified view.
   // Merged bodies share one surface, so they show one image, not two.
   float S = fc.y;
+  // Tiny droplets (mist, the smallest raindrops, trail droplets) are only 1–2 px wide.
+  // Shading them like full drops (dark rim + bright glint + lens image) turned them into
+  // salt-and-pepper speckle on dark scenes, so their contrast fades with size.
+  float tiny = smoothstep(uTinyMin, uTinyMax, S);           // 0 = tiny, 1 = full drop
   float wD = clamp(fc.z / max(fc.x, 1e-4), 0.0, 1.0);
-  float zoom = mix(uTrailLens, uLensZoom, wD);
+  float zoom = mix(uTrailLens, uLensZoom, wD) * mix(0.3, 1.0, tiny);
   // fisheye: the offset grows with the tangent of the surface slope, so the image
   // bends strongly toward the rim and straight lines (the horizon) curve with the
   // dome, as through a real ball lens, instead of cutting across like a level line
@@ -409,7 +546,7 @@ void main() {
 
   // steep rim: total internal reflection makes a dark band, strongest on the lower side
   float down = clamp(0.45 - n.y * 1.6, 0.0, 1.0);
-  water *= 1.0 - uEdgeDark * smoothstep(0.1, 0.55, edge) * mix(0.25, 1.35, down);
+  water *= 1.0 - uEdgeDark * smoothstep(0.1, 0.55, edge) * mix(0.25, 1.35, down) * mix(uTinyContrast, 1.0, tiny);
 
   // GLOSS. Wet water looks glossy (not satin) because its reflections are mirror-sharp:
   // 1) Fresnel mirror reflection (Schlick, water F0 ≈ 0.02) of the environment — the
@@ -430,16 +567,19 @@ void main() {
   float sp2 = smoothstep(0.985, 0.992, dot(n, H2)) * 0.18;    // small warm kick from below
   // treble shimmer: glints flicker smoothly (a blocky per-pixel hash broke them into squares)
   float sparkle = 1.0 + uShimmer * (vnoise(vUv * vec2(uAspect, 1.0) * 90.0 + uTime * 9.0) - 0.4) * 1.6;
-  water += vec3(1.0, 0.98, 0.94) * (glint * 1.6 + halo) * uSpec * sparkle + vec3(1.0, 0.65, 0.35) * sp2;
+  water += (vec3(1.0, 0.98, 0.94) * (glint * 1.6 + halo) * uSpec * sparkle + vec3(1.0, 0.65, 0.35) * sp2) * mix(uTinyContrast, 1.0, tiny);
 
   vec3 col = mix(glass, water, mask);
   float rim = mask * (1.0 - mask) * 4.0;                     // thin contact line
-  col *= 1.0 - 0.35 * rim;
+  col *= 1.0 - 0.35 * rim * mix(uTinyContrast, 1.0, tiny);
 
   col = 1.0 - exp(-col * uExposure);                          // filmic-ish tone map
   vec2 vc = vUv - 0.5;
   col *= 1.0 - uVignette * dot(vc, vc) * 1.6;
   col = pow(max(col, 0.0), vec3(1.0 / 2.2));
-  col += (hash(vUv * 1013.0 + fract(uTime * 7.31) * 91.0) - 0.5) * uGrain;
+  // film grain, strongest in the mid-tones like real film: it stays out of the deep
+  // night shadows and the brightest glints, where uniform noise looked harsh
+  float gl = dot(col, vec3(0.299, 0.587, 0.114));
+  col += (hash(vUv * 1013.0 + fract(uTime * 7.31) * 91.0) - 0.5) * uGrain * (0.25 + 3.0 * gl * (1.0 - gl));
   o = vec4(col, 1.0);
 }`;

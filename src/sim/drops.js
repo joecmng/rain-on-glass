@@ -108,6 +108,9 @@ export class DropSim {
     this.instanceCount = 0; this.wetCount = 0;
     this.stats = { moving: 0 };
     this.style = CONFIG.streakStyles[CONFIG.defaultStreakStyle];
+    // Optional surface hook (e.g. an uploaded logo's interaction mode, src/logo/modes.js).
+    // It may add water and scales pinning / drag / evaporation locally; null = plain glass.
+    this.surfaceMode = null;
   }
 
   setStyle(name) { this.style = CONFIG.streakStyles[name] || this.style; }
@@ -182,14 +185,25 @@ export class DropSim {
     const t = this.time;
     const W = this.W, H = this.H;
 
+    const SM = this.surfaceMode && this.surfaceMode.active ? this.surfaceMode : null;
+    this._sm = SM; this._dt = dt;
+    if (SM) SM.begin(this, F, dt);
+
     // ── spawn rain + mist ───────────────────────────────────────────────
+    // (a surface mode may take over a landing raindrop, e.g. splash it, or forbid mist)
     this.spawnAcc += F.spawnRate * dt;
     let k = Math.floor(this.spawnAcc); this.spawnAcc -= k;
     k += F.burst | 0;
-    while (k-- > 0) this.add(rand() * W, rand() * H, this.randomRadius());
+    while (k-- > 0) {
+      const sx = rand() * W, sy = rand() * H, sr = this.randomRadius();
+      if (!SM || !SM.spawn(this, sx, sy, sr)) this.add(sx, sy, sr);
+    }
     this.mistAcc += F.mistRate * dt;
     let mk = Math.floor(this.mistAcc); this.mistAcc -= mk;
-    while (mk-- > 0) this.addMist(rand() * W, rand() * H, S.mistRMin + rand() * (S.mistRMax - S.mistRMin));
+    while (mk-- > 0) {
+      const sx = rand() * W, sy = rand() * H;
+      if (!SM || SM.spawnMist(sx, sy)) this.addMist(sx, sy, S.mistRMin + rand() * (S.mistRMax - S.mistRMin));
+    }
     if (F.releaseEvent > 0) this.release(F.releaseEvent);
 
     const { x, y, vx, vy, r, pin, stall, hold, dist, ang, str, tap, seed, spd, hdg, path, stuck, kind, dead } = this;
@@ -243,6 +257,14 @@ export class DropSim {
         if (r[i] < S.minR) dead[i] = 1;
         continue;
       }
+      // local surface modifiers (1 = plain glass)
+      let mPin = 1, mKin = 1, mDrag = drag, m = null;
+      if (SM) {
+        m = SM.drop(x[i], y[i], r[i], i, this);
+        mPin = m.pin; mKin = m.kin;
+        if (m.drag > 0) mDrag = drag * Math.exp(-m.drag * dt);
+        r[i] -= S.evap * (m.evap - 1) * dt;
+      }
       let ri = r[i] - S.evap * dt;
       if (ri < S.minR) { dead[i] = 1; continue; }
       r[i] = ri;
@@ -250,8 +272,9 @@ export class DropSim {
       const inv = rRef / ri;
       let ax = wdx * windAcc * inv;
       let ay = wdy * windAcc * inv + g;
+      if (m) { ax += m.ax; ay += m.ay; }
       stall[i] *= stallDecay;
-      const pinTh = pinBase * inv * inv * pin[i] * this.surface.sample(x[i], y[i]) * Math.max(0.15, 1 + stall[i]);
+      const pinTh = pinBase * inv * inv * pin[i] * mPin * this.surface.sample(x[i], y[i]) * Math.max(0.15, 1 + stall[i]);
 
       if (stuck[i]) {
         hold[i] -= dt;
@@ -274,10 +297,16 @@ export class DropSim {
 
       let vxi = vx[i] + ax * dt, vyi = vy[i] + ay * dt;
       let sp = Math.hypot(vxi, vyi);
-      const kin = pinTh * S.kineticRatio;
+      const kin = pinTh * S.kineticRatio * (mKin / mPin);
       if (sp > 1e-6) {
-        const ns = Math.max(0, sp - kin * dt) * drag;
+        const ns = Math.max(0, sp - kin * dt) * mDrag;
         const sc = ns / sp; vxi *= sc; vyi *= sc; sp = ns;
+      }
+      // obstacle (surface mode): no motion into it, nudged out of it → runs along its contour
+      if (m && m.wall) {
+        const vn = vxi * m.nx + vyi * m.ny;
+        if (vn < 0) { vxi -= vn * m.nx; vyi -= vn * m.ny; sp = Math.hypot(vxi, vyi); }
+        x[i] += m.nx * m.pen; y[i] += m.ny * m.pen;
       }
       if (sp < S.stopSpeed && Math.hypot(ax, ay) < kin * 1.05) {
         stuck[i] = 1; vx[i] = 0; vy[i] = 0;
@@ -469,7 +498,12 @@ export class DropSim {
   }
 
   _evaporateMist(dt) {
-    const { mr, mdead } = this, e = S.mistEvap * dt;
+    const { mr, mdead } = this, e = S.mistEvap * dt, SM = this._sm;
+    if (SM) {
+      const { mx, my } = this;
+      for (let i = 0; i < this.mn; i++) { mr[i] -= e * SM.mistEvap(mx[i], my[i]); if (mr[i] < 0.3) mdead[i] = 1; }
+      return;
+    }
     for (let i = 0; i < this.mn; i++) { mr[i] -= e; if (mr[i] < 0.3) mdead[i] = 1; }
   }
 

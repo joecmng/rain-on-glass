@@ -72,6 +72,22 @@ export class AudioEngine {
     return audio[0].label || 'Shared audio';
   }
 
+  // Use the audio of a screen-share stream someone else owns (e.g. the YouTube scene
+  // window, shared with "Also share tab audio"). The stream's owner stops its tracks.
+  useStream(stream, label = 'Shared audio') {
+    this.ensure();
+    this.stop();
+    const audio = stream.getAudioTracks();
+    if (!audio.length) return null;
+    this.node = this.ctx.createMediaStreamSource(new MediaStream(audio));
+    this.node.connect(this.analyser);
+    audio[0].addEventListener('ended', () => {
+      if (this.mode === 'display') { this.stop(); this.onEnded?.('Sharing stopped'); }
+    });
+    this.mode = 'display';
+    return label;
+  }
+
   async useMic() {
     this.ensure();
     this.stop();

@@ -16,6 +16,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const CONFIG = {
+  // ── Features ─────────────────────────────────────────────────────────────
+  features: {
+    audio: false,       // audio controls + music reaction. Hidden for now; set true to bring them back
+    youtube: false,     // "YouTube scene" background option. Hidden for now; set true to bring it back
+  },
+
   // ── Quality presets ──────────────────────────────────────────────────────
   // renderScale: canvas resolution relative to CSS px × devicePixelRatio
   // waterScale:  water-map resolution relative to the canvas
@@ -37,9 +43,11 @@ export const CONFIG = {
     speed: 1.0,         // 0..2  "car speed": airflow grows with speed² (air drag), plus background scroll
     windAngle: 90,      // deg, wind dial: 0 = down (with gravity), 90 = horizontal toward the rear, 180 = up
     rain: 0.7,          // 0..2  rain intensity (spawn rate multiplier)
-    background: 'city',
+    background: 'scenes', // scenic clips start playing on load
     streakStyle: 'jagged',
     fog: 0.6,           // 0..1 condensation density (UI slider)
+    grain: 0.5,         // 0..1 film grain (UI slider; 0 = off)
+    bokeh: 1.0,         // 0..1.5 background defocus: 0 = crisp lights, 1 = soft bokeh, 1.5 = dreamy
   },
 
   // ── Simulation ───────────────────────────────────────────────────────────
@@ -243,6 +251,10 @@ export const CONFIG = {
                              // per-frame ripples that the rivulet's lens would magnify (0 = off)
     moveFlatten: 0.45,       // how much a sliding drop flattens into its rivulet (0 = stays a tall bead)
     dropSmooth: 0.5,         // texels: light smoothing of the drop field (0 = off)
+    // tiny droplets (mist etc.) get softer shading so they don't read as noise on dark scenes
+    tinyMin: 1.0,            // u of water thickness: at/below this a droplet gets the softest shading
+    tinyMax: 5.0,            // u: from here up, drops get full rim/glint contrast
+    tinyContrast: 0.2,       // how much rim/glint contrast the tiniest droplets keep (0..1)
     dropSharp: 0.8,          // 0..1 how crisp the scene looks through a drop (lower = softer, more natural)
     lensZoom: 7.5,           // inverted + minified view through drops (higher = wider)
     edgeDark: 0.8,           // dark rim from total internal reflection
@@ -251,7 +263,7 @@ export const CONFIG = {
     shininess: 150,
     exposure: 1.35,
     vignette: 0.55,
-    grain: 0.022,
+    grain: 0.03,             // film grain strength at Grain slider = 1
     glassTint: [0.93, 0.96, 1.0],
     fog: 0.012,              // faint condensation haze on the glass
   },
@@ -269,8 +281,94 @@ export const CONFIG = {
   },
 
   background: {
+    sceneRotateSeconds: 75,  // scenic clips: switch to another random clip this often
     scrollSpeed: 0.33,       // screen heights/s of the nearest bokeh layer at speed 1
     imageBlurPasses: 3,
+  },
+
+  // Uploaded logo (src/logo/). Placement sizes are fractions of the window's shorter side.
+  logo: {
+    size: 0.6,               // default size when a logo is uploaded
+    minSize: 0.08,
+    maxSize: 1.4,
+    maskMode: 'auto',        // 'auto' | 'alpha' (transparency) | 'luma' (dark areas)
+    threshold: 0.5,          // mask cut-off (alpha or luminance)
+    mode: 'water',           // default mode: 'water' | 'invisible' | 'raised' | 'repellent'
+
+    // Water: the logo is made of water, shaded like the drops (src/logo/modes.js)
+    water: {
+      strength: 1,           // 0 = off, 1 = on (fades in)
+      weight: 0,             // u: thicken (+) or thin (−) the shape
+      rounding: 1,           // × the logo's typical half stroke width: how far in each stroke rounds over
+      thickness: 0.9,        // water depth relative to that (lens strength)
+      maxProfile: 40,        // u, caps for very bold logos (wide areas level off into a pool)
+      maxThick: 22,          // u
+      clearFog: 1,           // how much the water clears the condensation under it
+      // filling up and dripping
+      capacity: 0.12,        // water a piece holds before it is "full" (r³ per u² of its area)
+      swell: 0.9,            // how much deeper a full piece gets (lower part most)
+      bulge: 7,              // u: how far a full piece's lower outline bulges out
+      dripAt: 0.8,           // fill at which surface tension gives and a drip forms
+      dripSize: 11,          // u: radius a hanging drip reaches before it lets go
+      drips: 1,              // 0 = never drips
+      drain: 25,             // s: settles back to resting this fast once the rain stops
+      catch: 0.15,           // share of the water from drops running into it that fills it
+                             // (rain landing directly on it always counts in full)
+    },
+
+    // Invisible Glass: the logo is a clear water-repellent coating, revealed only by
+    // beaded water while it rains (src/logo/modes.js)
+    invisible: {
+      strength: 1,           // overall effect (0 = off)
+      density: 1,            // how much extra beading forms on the logo (× beads and mist)
+      frost: 0.7,            // micro-bead frosting of the logo while wet (0..1)
+      cling: 2.5,            // extra pinning on the logo (× normal + 1)
+      slide: 3.0,            // extra drag on the logo, 1/s (slower sliding)
+      rollOff: 0.45,         // big drops on the logo pin this much less (they roll away)
+      slowEvap: 0.6,         // drops on the logo dry this much slower while it rains
+      fadeEvap: 16,          // …and this much faster once the rain eases (logo fades)
+      coverage: 0.45,        // share of the logo covered by beads (× Beading slider)
+      fillTime: 5,           // s to bead up the logo at default rain
+      mist: 1000,            // extra fine spray droplets/s per million u² of logo
+      beadRMin: 3.5,         // u, bead size range (chosen from logo size and budget);
+      beadRMax: 8,           //    merged beads > 1.6× the size roll off
+      beadBudget: 0.4,       // max share of the drop capacity used by beads on the logo
+      edgeBand: 14,          // u, width of the band along downstream edges that holds water
+      edgeHold: 4,           // extra pinning in that band (water gathers, then drips)
+    },
+
+    // Raised Object: a glossy emblem standing proud of the glass
+    raised: {
+      strength: 1,           // overall effect (0 = off)
+      splash: 0.85,          // chance a raindrop hitting the emblem splashes apart
+      spread: 1,             // how far splash droplets are thrown
+      slick: 0.3,            // pinning on the emblem's glossy top (× normal): water runs off
+      edgeBand: 12,          // u, band inside the downstream edges where water hangs
+      edgeHold: 5,           // extra pinning there (gathers, then drips)
+      bevel: 7,              // rendering: bevel width, in mask-grid cells
+      gloss: 1,              // rendering: reflection / highlight strength
+      depth: 1,              // rendering: how raised it looks (bevel slope, shadow)
+    },
+
+    // Water-Repellent: the logo stays dry; water avoids it and beads round its outline
+    repellent: {
+      strength: 1,           // overall effect (0 = off)
+      repel: 9000,           // u/s², push on water that finds itself on the patch
+      outline: 10,           // u, width of the beading band round the outline
+      beading: 4,            // extra pinning in that band
+      dryness: 1,            // rendering: how clear of condensation the patch stays
+    },
+  },
+
+  // Drawing on the glass (src/logo/draw.js). Sizes in world units (1000 = window height).
+  draw: {
+    size: 14,                // brush width
+    minSize: 2,
+    maxSize: 80,
+    pressure: true,          // pen pressure changes the width
+    colour: '#e6edf5',       // what drawn strokes look like in Raised mode
+    canvasLong: 1600,        // px, long side of the combined logo + drawing image
+    gridLong: 480,           // cells along the long side of its distance grid (finer than a logo's)
   },
 
   ui: {
