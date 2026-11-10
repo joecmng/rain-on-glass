@@ -77,6 +77,7 @@ export class LogoController {
     }
     // one window-shaped canvas: the logo (its own colours) where it sits, plus the strokes
     const vw = innerWidth, vh = innerHeight, aspect = vw / vh, L = CONFIG.draw.canvasLong;
+    if (!vw || !vh) return;                         // window has no size (e.g. a hidden tab)
     const cw = aspect >= 1 ? L : Math.round(L * aspect), ch = aspect >= 1 ? Math.round(L / aspect) : L;
     const c = document.createElement('canvas');
     c.width = cw; c.height = ch;
