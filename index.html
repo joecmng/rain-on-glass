@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rain on Glass</title>
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <canvas id="gl"></canvas>
+
+  <div id="panel" class="panel">
+    <div class="title">Rain on Glass</div>
+
+    <label class="row">Audio
+      <select id="audioSrc">
+        <option value="none">None (cruising)</option>
+        <option value="display">Tab / system audio (YouTube…)</option>
+        <option value="mic">Microphone</option>
+        <option value="file">Audio file…</option>
+        <option value="test">Test beat</option>
+      </select>
+    </label>
+    <div id="audioStatus" class="status"></div>
+    <audio id="player" controls hidden></audio>
+
+    <label class="row">Sensitivity <input id="sensitivity" type="range" min="0" max="3" step="0.01" /><output></output></label>
+    <label class="row">Speed <input id="speed" type="range" min="0" max="2" step="0.01" /><output></output></label>
+    <div class="row dialrow">
+      <span>Wind</span>
+      <div id="windDial" class="dial" role="slider" tabindex="0" aria-label="Wind direction (drag or use arrow keys; double-click to reset)"
+           aria-valuemin="0" aria-valuemax="359" title="Drag to point the airflow. Double-click to reset.">
+        <svg viewBox="-50 -50 100 100" aria-hidden="true">
+          <circle class="dial-ring" r="44" />
+          <g class="dial-ticks"></g>
+          <g class="dial-gravity"><line x1="0" y1="30" x2="0" y2="42" /><text x="0" y="-1" dy="34" class="dial-g">g</text></g>
+          <g id="windArrow" class="dial-arrow">
+            <line x1="0" y1="-26" x2="0" y2="26" />
+            <path d="M -8 18 L 0 34 L 8 18 Z" />
+          </g>
+          <circle class="dial-hub" r="4" />
+        </svg>
+      </div>
+      <output id="windOut"></output>
+    </div>
+    <label class="row">Rain <input id="rain" type="range" min="0" max="2" step="0.01" /><output></output></label>
+    <label class="row">Fog <input id="fog" type="range" min="0" max="1" step="0.01" /><output></output></label>
+
+    <label class="row">Streaks
+      <select id="streakStyle"></select>
+    </label>
+    <label class="row">Background
+      <select id="bg">
+        <option value="city">Night city bokeh</option>
+        <option value="day">Overcast day</option>
+        <option value="image">Image…</option>
+        <option value="webcam">Webcam</option>
+      </select>
+    </label>
+    <label class="row">Quality
+      <select id="quality">
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+        <option value="ultra">Ultra</option>
+      </select>
+    </label>
+    <div class="buttons">
+      <button id="fullscreen">Fullscreen</button>
+      <button id="debugBtn">Debug (D)</button>
+    </div>
+    <div class="hint">Drop an audio or image file anywhere.</div>
+
+    <input id="audioFile" type="file" accept="audio/*" hidden />
+    <input id="imageFile" type="file" accept="image/*" hidden />
+  </div>
+
+  <div id="debug" class="debug" hidden></div>
+  <div id="dropzone">Drop audio or image</div>
+  <div id="toast"></div>
+  <div id="fatal" hidden></div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+:root {
+  --fg: #e8ecf2;
+  --muted: #9aa4b2;
+  --glass: rgba(14, 16, 22, 0.58);
+  --line: rgba(255, 255, 255, 0.09);
+  --accent: #ffb25e;
+  --a: #7fc8ff;
+  --f: #ffb25e;
+}
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: var(--fg);
+  font: 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+canvas#gl { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+
+.panel {
+  position: fixed; left: 16px; bottom: 16px; width: 270px; padding: 12px 14px;
+  background: var(--glass); border: 1px solid var(--line); border-radius: 10px;
+  backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.title { font-weight: 600; letter-spacing: 0.04em; margin-bottom: 8px; color: #fff; }
+.row { display: grid; grid-template-columns: 78px 1fr 34px; align-items: center; gap: 6px; margin: 5px 0; color: var(--muted); }
+.row select { grid-column: 2 / 4; }
+.row output { text-align: right; color: var(--fg); font-variant-numeric: tabular-nums; }
+select, button {
+  background: rgba(255, 255, 255, 0.06); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 4px 6px; font: inherit;
+}
+select option { background: #1a1d24; }
+button { cursor: pointer; }
+button:hover, select:hover { background: rgba(255, 255, 255, 0.12); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.dialrow { align-items: center; }
+.dial { width: 64px; height: 64px; cursor: grab; touch-action: none; border-radius: 50%; outline: none; justify-self: start; }
+.dial.dragging { cursor: grabbing; }
+.dial:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.dial svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.dial-ring { fill: rgba(255, 255, 255, 0.05); stroke: var(--line); stroke-width: 2; }
+.dial-ticks line { stroke: rgba(255, 255, 255, 0.25); stroke-width: 2; }
+.dial-gravity line { stroke: rgba(127, 200, 255, 0.55); stroke-width: 3; }
+.dial-g { fill: rgba(127, 200, 255, 0.8); font: 600 11px system-ui, sans-serif; text-anchor: middle; }
+.dial-arrow line { stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+.dial-arrow path { fill: var(--accent); }
+.dial-hub { fill: var(--fg); }
+#windOut { text-align: right; color: var(--fg); font-variant-numeric: tabular-nums; }
+.buttons { display: flex; gap: 6px; margin-top: 8px; }
+.buttons button { flex: 1; }
+.status { min-height: 0; color: var(--accent); margin: 2px 0 4px; font-size: 11px; }
+.status:empty { display: none; }
+#player { width: 100%; height: 30px; margin: 4px 0; }
+.hint { color: var(--muted); font-size: 11px; margin-top: 8px; opacity: 0.8; }
+
+body.idle { cursor: none; }
+body.idle .panel { opacity: 0; transform: translateY(8px); pointer-events: none; }
+
+.debug {
+  position: fixed; top: 16px; right: 16px; width: 250px; padding: 10px 12px;
+  background: rgba(8, 10, 14, 0.72); border: 1px solid var(--line); border-radius: 8px;
+  font: 11px/1.3 ui-monospace, Consolas, monospace; pointer-events: none;
+}
+.debug .dh { display: flex; justify-content: space-between; color: #fff; margin-bottom: 4px; gap: 8px; }
+.debug .sec { margin: 8px 0 4px; color: var(--muted); }
+.debug .small { font-size: 10px; }
+.debug .m { display: grid; grid-template-columns: 52px 1fr 38px; gap: 6px; align-items: center; margin: 2px 0; }
+.debug .bar { height: 7px; background: rgba(255, 255, 255, 0.08); border-radius: 2px; overflow: hidden; }
+.debug .bar i { display: block; height: 100%; transform-origin: left; transform: scaleX(0); }
+.debug .bar.a i { background: var(--a); }
+.debug .bar.f i { background: var(--f); }
+.debug b { font-weight: normal; text-align: right; }
+.lamp { display: inline-block; padding: 0 5px; margin-left: 4px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); color: var(--muted); }
+.lamp.on { background: var(--accent); color: #000; }
+
+#dropzone {
+  position: fixed; inset: 16px; border: 2px dashed rgba(255, 255, 255, 0.4); border-radius: 14px;
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+  background: rgba(0, 0, 0, 0.35); opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+body.dragging #dropzone { opacity: 1; }
+#toast {
+  position: fixed; top: 18px; left: 50%; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px));
+  padding: 8px 14px; border-radius: 8px; background: var(--glass); border: 1px solid var(--line);
+  backdrop-filter: blur(10px); opacity: 0; transition: opacity 0.4s; pointer-events: none; text-align: center;
+}
+#toast.show { opacity: 1; }
+#fatal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; white-space: pre-wrap; background: #111; }
+
+@media (max-width: 520px) {
+  .panel { left: 16px; right: 16px; width: auto; bottom: 16px; }
+  .debug { left: 16px; right: 16px; width: auto; }
+}
