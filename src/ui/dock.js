@@ -1,8 +1,9 @@
 // The control dock: a row of icons at the bottom of the window. Each icon opens its card
 // above the dock; tapping the same icon again, tapping the glass or pressing Esc closes it.
-// The Draw icon is different: it turns drawing on, and the dock swaps its icons for a
-// one-row strip of drawing tools (body.draw-mode, set by src/logo/panel.js) so as little
-// of the window as possible is covered while you draw.
+// The Draw icon is different: it turns drawing on and shows a slim bar of drawing tools
+// just above the dock (body.draw-mode, set by src/logo/panel.js); tapping it again hides
+// the tools and stops drawing. Opening any other card stops drawing too, so only one
+// menu is ever open.
 //
 // Cards can be dragged by their title bar to anywhere on screen (so the Logo card needn't
 // cover the logo). They share one position: wherever you last put a card, the next card you
@@ -50,14 +51,19 @@ export function setupDock() {
       b.setAttribute('aria-expanded', String(on));
     }
   };
-  for (const b of buttons) b.addEventListener('click', () => show(open === b.dataset.open ? null : b.dataset.open));
+  for (const b of buttons) {
+    b.addEventListener('click', () => {
+      if (document.body.classList.contains('draw-mode')) $('drawToggle').click();   // stop drawing first
+      show(open === b.dataset.open ? null : b.dataset.open);
+    });
+  }
 
   // tapping the glass closes an open card (the tap still reaches the window as usual)
   $('gl').addEventListener('pointerdown', () => { if (open) show(null); });
   addEventListener('keydown', (e) => { if (e.key === 'Escape' && open) show(null); });
   addEventListener('resize', () => { for (const c of cards) if (!c.hidden) place(c); });
 
-  // Draw: close any card (the strip's Done button turns drawing off: src/logo/panel.js)
+  // Draw: close any card (the pencil itself turns drawing on and off: src/logo/panel.js)
   $('drawToggle').addEventListener('click', () => show(null));
 
   // ── dragging cards by their title bar ─────────────────────────────────────

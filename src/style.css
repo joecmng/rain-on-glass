@@ -35,9 +35,15 @@ canvas#gl { position: fixed; inset: 0; width: 100vw; height: 100vh; display: blo
 .icon-btn svg { width: 19px; height: 19px; }
 .dock-btn:hover, .icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
 .dock-btn.on { background: var(--accent); color: #111; }
-.draw-strip { display: none; align-items: center; gap: 8px; padding-right: 4px; overflow-x: auto; scrollbar-width: none; }
-body.draw-mode .dock-icons { display: none; }
+.draw-strip {
+  position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); pointer-events: auto;
+  display: none; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 24px;
+  width: max-content; max-width: calc(100vw - 24px); box-sizing: border-box;
+  background: var(--glass); border: 1px solid var(--line); transition: opacity 0.6s ease;
+  backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2);
+}
 body.draw-mode .draw-strip { display: flex; }
+body.draw-mode #drawToggle { background: var(--accent); color: #111; }
 .strip-slider { display: flex; align-items: center; gap: 6px; color: var(--muted); white-space: nowrap; }
 .strip-slider input[type=range] { width: 96px; flex: none; }
 .strip-slider output { color: var(--fg); font-variant-numeric: tabular-nums; min-width: 18px; }
@@ -46,15 +52,11 @@ body.draw-mode .draw-strip { display: flex; }
   border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: var(--fg); cursor: pointer; user-select: none;
 }
 .chip input { display: none; }
-.chip svg, .done-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.chip svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .seg { display: flex; }
 .seg .chip:first-child { border-radius: 16px 0 0 16px; }
 .seg .chip:last-child { border-radius: 0 16px 16px 0; border-left: none; }
-.done-btn {
-  display: inline-flex; align-items: center; gap: 4px; padding: 7px 13px; border-radius: 18px; white-space: nowrap;
-  background: rgba(255, 255, 255, 0.92); color: #111; border: none; font-weight: 600;
-}
-.done-btn:hover { background: #fff; }
+
 .chip.on { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600; }
 .dock-card {
   position: absolute; left: 50%; bottom: 76px; transform: translateX(-50%); pointer-events: auto;
@@ -136,6 +138,7 @@ body.idle .dock { opacity: 0; transform: translate(-50%, 8px); pointer-events: n
 body.idle .dock-card { opacity: 0; pointer-events: none; }
 /* …except the drawing strip, which stays (dimmed) so the tools are always to hand */
 body.idle.draw-mode .dock { opacity: 0.6; transform: translateX(-50%); pointer-events: auto; }
+body.idle .draw-strip { opacity: 0.6; }
 /* touch screens: there's no hover to bring it back, so the dock only dims and stays
    tappable (otherwise the first tap on an icon would just wake it up) */
 @media (hover: none) {
@@ -176,14 +179,13 @@ body.dragging #dropzone { opacity: 1; }
 
 /* narrower windows: the drawing strip wraps onto two rows rather than running off screen */
 @media (max-width: 720px) {
-  body.draw-mode .dock { border-radius: 20px; }
-  .draw-strip { flex-wrap: wrap; justify-content: center; overflow: visible; gap: 6px; padding: 2px; }
+  .draw-strip { flex-wrap: wrap; justify-content: center; gap: 6px; border-radius: 20px; }
   .strip-slider input[type=range] { width: 72px; }
   .chip { padding: 6px 9px; }
 }
 @media (max-width: 520px) {
   .dock { bottom: 10px; }
-  .dock-card { bottom: 70px; }
+  .dock-card, .draw-strip { bottom: 70px; }
   .dock-btn { width: 44px; height: 44px; }
   .debug { left: 16px; right: 16px; width: auto; }
 }

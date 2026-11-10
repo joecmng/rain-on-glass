@@ -140,6 +140,26 @@
       <div class="hint">Keys: B draw · E eraser · Ctrl+Z undo · M mask · H hide · F fullscreen · D debug</div>
     </section>
 
+    <!-- Drawing tools: shown above the dock while drawing (the pencil toggles them) -->
+    <div id="drawBox" class="draw-strip" aria-label="Drawing tools">
+      <div class="seg" role="group" aria-label="Tool">
+        <button class="chip on" id="drawBrush" title="Draw (the tool you start with)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19z" /><path d="M14 7l3 3" /></svg> Brush
+        </button>
+        <button class="chip" id="drawEraser" title="Rub out (E). A pen's eraser end works too.">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20h12M5 15l9-9 5 5-9 9H8z" /></svg> Eraser
+        </button>
+      </div>
+      <label class="strip-slider" title="Brush size (or scroll while drawing)">Size <input id="drawSize" type="range" min="2" max="80" step="0.5" /><output></output></label>
+      <label class="chip" title="Pen pressure changes the width"><input id="drawPressure" type="checkbox" /> Pressure</label>
+      <button class="icon-btn" id="drawUndo" aria-label="Undo" title="Undo (Ctrl+Z)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
+      </button>
+      <button class="icon-btn" id="drawClear" aria-label="Clear drawing" title="Clear drawing">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+      </button>
+    </div>
+
     <!-- the dock itself -->
     <nav class="dock" aria-label="Controls">
       <div class="dock-icons">
@@ -160,28 +180,6 @@
         </button>
       </div>
 
-      <!-- Draw: the dock becomes this strip -->
-      <div id="drawBox" class="draw-strip" aria-label="Drawing tools">
-        <div class="seg" role="group" aria-label="Tool">
-          <button class="chip on" id="drawBrush" title="Draw (the tool you start with)">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4L16 5l3 3L8 19z" /><path d="M14 7l3 3" /></svg> Brush
-          </button>
-          <button class="chip" id="drawEraser" title="Rub out (E). A pen's eraser end works too.">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 20h12M5 15l9-9 5 5-9 9H8z" /></svg> Eraser
-          </button>
-        </div>
-        <label class="strip-slider" title="Brush size (or scroll while drawing)">Size <input id="drawSize" type="range" min="2" max="80" step="0.5" /><output></output></label>
-        <label class="chip" title="Pen pressure changes the width"><input id="drawPressure" type="checkbox" /> Pressure</label>
-        <button class="icon-btn" id="drawUndo" aria-label="Undo" title="Undo (Ctrl+Z)">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
-        </button>
-        <button class="icon-btn" id="drawClear" aria-label="Clear drawing" title="Clear drawing">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
-        </button>
-        <button class="done-btn" id="drawDone" title="Finish drawing (B)">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg> Done
-        </button>
-      </div>
     </nav>
 
     <input id="logoFile" type="file" hidden />

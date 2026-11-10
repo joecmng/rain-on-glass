@@ -62,7 +62,7 @@ export function setupLogoPanel(logo, toast, modes, onMode) {
       $('drawToggle').classList.toggle('on', draw.enabled);
       $('drawBrush').classList.toggle('on', !draw.eraser);
       $('drawEraser').classList.toggle('on', draw.eraser);
-      document.body.classList.toggle('draw-mode', draw.enabled);   // the dock shows the drawing strip
+      document.body.classList.toggle('draw-mode', draw.enabled);   // shows the drawing tools above the dock
       $('drawPressure').parentElement.classList.toggle('on', draw.pressure);
       dSize.value = draw.size; dSizeOut.textContent = draw.size.toFixed(0);
       $('drawPressure').checked = draw.pressure;
@@ -72,11 +72,10 @@ export function setupLogoPanel(logo, toast, modes, onMode) {
     const setDrawing = (on) => {
       if (on) draw.eraser = false;
       draw.setEnabled(on);
-      if (on) toast('Draw on the glass. Tap Done (or B) when you’ve finished.', 3500);
+      if (on) toast('Draw on the glass. Tap the pencil again (or B) when you’ve finished.', 3500);
       syncDraw();
     };
     $('drawToggle').addEventListener('click', () => setDrawing(!draw.enabled));
-    $('drawDone').addEventListener('click', () => setDrawing(false));
     $('drawBrush').addEventListener('click', () => { draw.eraser = false; syncDraw(); });
     $('drawEraser').addEventListener('click', () => { draw.eraser = true; syncDraw(); });
     $('drawUndo').addEventListener('click', () => { draw.undo(); syncDraw(); });
